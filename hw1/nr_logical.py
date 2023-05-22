@@ -21,12 +21,31 @@ def nr_logical(num,div,rep=10):
 #print(nr_logical(121,11))
 
 #part 3 logical models w/ floating point representaiton
+#helpers:
+def zeroExtend(binStr, strLen):
+    return '0'*(strLen-len(binStr)) + binStr
+
 #3a: write a model to convert python floating point numbers to logical floating point representations
 # bias = (2 << (8-1))
 def logicFloat_to_float(logicFloat, expLen, manLen):
     signBit, expBits, manBits = logicFloat
+    assert(len(manBits)==manLen)
+    #assert(len(expBits)==expLen)
+    if len(expBits)!=expLen:
+        print(logicFloat)
+        print(expBits, expLen)
+        exit(111)
     bias = pow(2,expLen-1)
+    # NOTE: as a side note; we NEED the expBits and manBits to be the right length coming in
+    # if len(manBits)>manLen-1:
+    #     print("zeroExtend needed:", len(manBits))
+    #     print('1'+zeroExtend(manBits, manLen), "=>", int('1'+zeroExtend(manBits, manLen),2))
+    #     print('1'+manBits, "=>", int('1'+manBits,2))
     return (-1 if signBit=='1' else 1) * pow(2, int(expBits, 2)-bias) * int('1'+manBits,2) * pow(2,-manLen)
+    #BUG 052123: zeroExtend (works without if expBits and manBits are right len; make sure of that))
+    #NOTE 052123: manBits are guranteed to be of the form
+    #[1][.][00010101...1], where mantBits = '00010101...1' and is always mantBits long
+
 def float_to_Logicfloat(floatIn, expLen, manLen):
     whole,frac = int(floatIn), floatIn - int(floatIn)
     mantWhole,mantFrac = bin(whole)[2:] if whole>0 else '', ''
@@ -35,7 +54,7 @@ def float_to_Logicfloat(floatIn, expLen, manLen):
     while len(mantFrac)+len(mantWhole) < manLen+1 and frac != 0:
         frac = frac * 2
         mantFrac += ('1' if frac > 1 else '0')
-        frac -= 1 if frac > 1 else 0
+        frac -= 1 if frac >= 1 else 0 #subtle bug: should be frac >= 1 not frac > 1
         #print(exp, bin(exp))
     if (whole==0 and all([digit=='0' for digit in mantFrac])):
         print("zero not supported yet")
@@ -46,7 +65,11 @@ def float_to_Logicfloat(floatIn, expLen, manLen):
         exp = (-1*mantFrac.index('1'))-1
     exp = exp + pow(2,expLen-1)
     assert(mantWhole=='' or mantWhole[0]=='1')
-    return ['1' if floatIn<0 else '0', bin(exp)[2:], (mantWhole+mantFrac)[1:]]
+    #052123 NOTE:
+    #mantWhole+mantFrac is guranteed to be a string with a 1 in front, so long as mantWhole>1
+    #when mantWhole is 0, mantFrac is shifted left until the first digit is 1, and exp is increased
+    #either way, mantWhole+mantFrac will ahve a 1 in front, which will be cut off by the [1:]
+    return ['1' if floatIn<0 else '0', zeroExtend(bin(exp)[2:], expLen), (mantWhole+mantFrac)[1:]]
 
 #3b: write the bitshift function between floating points
 #this function should only shift a floating point number LEFT, or division w/ a pwoer of 2
@@ -59,89 +82,47 @@ def shiftRightLogicFloat(logicFloat, expLen,manLen, shiftLeftAmount):
     else:
         exp = 0
         print("LOG: shifted left until 0!")
-    return [signBit, bin(exp)[2:], manBits]
+    return [signBit, zeroExtend(bin(exp)[2:], expLen), manBits]
 #3c: write the multiplication function between floating points
-
+#assume that expBits and manBits are the same length in A, B, and C
+def multiplyLogicFloat(logicFloatA, logicFloatB, expLen, manLen):
+    signBitA, expBitsA, manBitsA = logicFloatA
+    signBitB, expBitsB, manBitsB = logicFloatB
+    #get expBits and manBits
+    expC = int(expBitsA, 2) + int(expBitsB, 2) - pow(2,expLen-1)
+    print("expC",expC)
+    print(bin(expC))
+    manC = int('1'+zeroExtend(manBitsA, manLen), 2) * int('1'+zeroExtend(manBitsB, manLen), 2)
+    manCScaled = int('1'+zeroExtend(manBitsA, manLen), 2) * int('1'+zeroExtend(manBitsB, manLen), 2) * pow(2,-1*(manLen)) * pow(2,-1*(manLen))
+    #if mantisa overflow, shift until fits, then increase exp
+    #note that manBitsA/manBitsB are at least 1.0, and are atmost 1.1111...1
+    #1.0*1.0 is 1, and 1.111... * 1.111... = 1.999...*1.999... ~ 3.999...
+    #so, manC should be between 1 and 3.999..._10 = 11.111..._2
+    #clearly, the only case where we shift is if manC is bigger than or equal to 2.0:
+    #also, note that each manBitsA/B comes in as a manLen-wide signal
+    #...more instruction on this point here:
+    assert(manCScaled>=1.0 and manCScaled<=4.0)
+    manBitsC = bin(manC)[2:]
+    # if len(manBitsC)==(manLen*2)+1:
+    #     continue
+    # else:
+    #     assert(len(manBitsC)==(manLen*2)+2)
+    #     expC += 1
+    if len(manBitsC)==(manLen*2)+2:
+        expC += 1
+    else:
+        assert(len(manBitsC)==(manLen*2)+1)
+    manBitsC = manBitsC[:manLen+1]
+    #finally, the multplier can overflow: write the code here to check for an overflow
+    if expC >= pow(2,expLen):
+        print("LOG: multiply overflow!")
+    if expC < 0:
+        print("LOG: multiply underflow!")
+    signBitC = str(int(signBitA)^int(signBitB))
+    return [signBitC, bin(expC)[2:], manBitsC[1:]]
 #3d:  write the addition function between floating points
 
-#test logicFloat_to_float and float_to_Logicfloat
-rand_flt, expWidth, manWidth = 56.87, 8, 64
 
-expWidth = random.randint(3,30)
-manWidth = random.randint(3,30)
-rand_flt = random.uniform(0,pow(2,manWidth))
-#bug 1: the random float has to fit entirely in the mantisa:
-#otherwise, it will be off by a large number
-shiftLeftAmount = 5
-logicFloat = float_to_Logicfloat(rand_flt, expWidth, manWidth)
-print(logicFloat)
-floatOut = logicFloat_to_float(logicFloat, expWidth, manWidth)
-print(floatOut)
-assert(abs(rand_flt-floatOut)<1.5)
-print("t1:")
-for _2 in range(10):
-    expWidth = random.randint(8,30)
-    manWidth = random.randint(8,30)
-    for _ in range(100):
-        rand_flt = random.uniform(0,pow(2,manWidth))
-        if rand_flt==0:
-            print("oops, zero")
-            continue
-        logicFloat = float_to_Logicfloat(rand_flt, expWidth, manWidth)
-        floatOut = logicFloat_to_float(logicFloat, expWidth, manWidth)
-        if(abs(rand_flt-floatOut)>2):
-            print("errro:")
-            print(expWidth, manWidth)
-            print(logicFloat)
-            print(rand_flt,floatOut)
-            exit(111)
-        # else:
-        #     print("ok")
-        #     print(expWidth, manWidth)
-        #     print(logicFloat)
-        #     print(rand_flt,floatOut)
-#test leftshift
-print("t2:")
-for _2 in range(2000):
-    expWidth = random.randint(8,30)
-    manWidth = random.randint(8,30)
-    for _ in range(10000):
-        shiftLeftAmount = random.randint(3,expWidth)
-        rand_flt = random.uniform(0.001,pow(2,manWidth))
-        if rand_flt < pow(2,-1*expWidth/2):
-            print("currently doesn't support zero")
-            continue
-        #Bug 2: if rand+flt is REALLY small, then expWidth must be big enough to capture it
-        #if 2^-(expWidth-1) is bigger than rand_flt, then rand_flt will be represented by a zero
-        #NOTE: the bug that this causes is weird: it causes the mantisa to not find the '1' in string
-        #...since this is rare we will deal with it later
-        if rand_flt < pow(2,-1*manWidth):
-            print("currently doesn't support zero")
-            continue
-        if rand_flt==0:
-            print("oops, zero")
-            continue
-        try:
-            logicFloat = float_to_Logicfloat(rand_flt, expWidth, manWidth)
-        except ValueError:
-            print("ValueError")
-            print(expWidth, manWidth)
-            print(rand_flt)
-            exit(111)
-        logicFloatPrime = shiftRightLogicFloat(logicFloat, expWidth, manWidth, shiftLeftAmount)
-        floatOut = logicFloat_to_float(logicFloatPrime, expWidth, manWidth)
-        rand_fltPrime = rand_flt/pow(2,shiftLeftAmount)
-        if(abs(rand_fltPrime-floatOut)>2):
-            print("errro:")
-            print(expWidth, manWidth)
-            print(logicFloat)
-            print(rand_flt,floatOut)
-            exit(111)
-        # else:
-        #     print("ok")
-        #     print(expWidth, manWidth)
-        #     print(logicFloat)
-        #     print(rand_flt,floatOut)
 def nr_logical(num,div,rep=10):
     e = (pow(2,int(math.log(div,2)+1)))
     print("pow of 2 normalizing factor:", e)
