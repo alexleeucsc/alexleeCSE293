@@ -36,3 +36,14 @@ gt5 <<= sum > 5  # does a comparison, assigns that to different pin
 sim = pyrtl.Simulation()
 sim.step_multiple({'a': [0, 1, 2, 3, 4], 'b': [2, 2, 3, 3, 4]})
 sim.tracer.render_trace()
+
+
+
+
+
+for bitLen_p1 in range(32,100):
+    bitLen = bitLen_p1 - 1
+    prod = (pow(2,bitLen)-1)*(pow(2,bitLen)-1)
+    print(prod)
+    print(bin(prod))
+    print( len(bin(prod)[2:]) - 2*bitLen + 2)

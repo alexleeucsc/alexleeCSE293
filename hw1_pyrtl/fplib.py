@@ -55,7 +55,7 @@ def float_to_Logicfloat(floatIn, expLen, manLen):
         frac = frac * 2
         mantFrac += ('1' if frac > 1 else '0')
         frac -= 1 if frac >= 1 else 0 #subtle bug: should be frac >= 1 not frac > 1
-        #print(exp, bin(exp))
+        print(mantFrac)
     if (whole==0 and all([digit=='0' for digit in mantFrac])):
         print("zero not supported yet")
         raise ValueError("zero not supported yet")
