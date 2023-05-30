@@ -55,19 +55,29 @@ def float_to_Logicfloat(floatIn, expLen, manLen):
         frac = frac * 2
         mantFrac += ('1' if frac > 1 else '0')
         frac -= 1 if frac >= 1 else 0 #subtle bug: should be frac >= 1 not frac > 1
-        print(mantFrac)
+        #print(mantFrac)
     if (whole==0 and all([digit=='0' for digit in mantFrac])):
         print("zero not supported yet")
         raise ValueError("zero not supported yet")
+    mantConcat = (mantWhole+mantFrac)
     if whole>0:
+        print("whole!")
         exp = len(bin(whole)[2:])-1
     else:
         exp = (-1*mantFrac.index('1'))-1
+        #BUG 052923 - when whole isn't there, the mant needs to be shifted
+        mantConcat = (mantWhole+mantFrac)[mantFrac.index('1'):]
     exp = exp + pow(2,expLen-1)
     assert(mantWhole=='' or mantWhole[0]=='1')
     #052123 NOTE:
     #mantWhole+mantFrac is guranteed to be a string with a 1 in front, so long as mantWhole>1
     #when mantWhole is 0, mantFrac is shifted left until the first digit is 1, and exp is increased
     #either way, mantWhole+mantFrac will ahve a 1 in front, which will be cut off by the [1:]
-    return ['1' if floatIn<0 else '0', zeroExtendLeft(bin(exp)[2:], expLen), zeroExtendRight((mantWhole+mantFrac)[1:], manLen)]
+    # firstOneBit = (mantWhole+mantFrac).index('1')
+    # mantCorrected = (mantWhole+mantFrac)[firstOneBit:]
+    # exp = exp - firstOneBit + 1
+    #return ['1' if floatIn<0 else '0', zeroExtendLeft(bin(exp)[2:], expLen), zeroExtendRight((mantWhole+mantFrac)[1:], manLen)]
+    return ['1' if floatIn<0 else '0', zeroExtendLeft(bin(exp)[2:], expLen), zeroExtendRight((mantConcat)[1:], manLen)]
 
+# lf = float_to_Logicfloat(0.3842704582756764, 8, 64)
+# logicFloat_to_float(float_to_Logicfloat(0.3842704582756764, 8, 64), 8, 64)

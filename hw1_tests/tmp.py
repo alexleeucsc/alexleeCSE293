@@ -41,9 +41,25 @@ sim.tracer.render_trace()
 
 
 
-for bitLen_p1 in range(32,100):
+for bitLen_p1 in range(3,100):
     bitLen = bitLen_p1 - 1
     prod = (pow(2,bitLen)-1)*(pow(2,bitLen)-1)
-    print(prod)
-    print(bin(prod))
     print( len(bin(prod)[2:]) - 2*bitLen + 2)
+
+#052923
+#assert that manA * pow of 2 == float a
+expLen = 8
+manLen = 16
+manABits = '0b1000111011010110'
+manABitsZExt = '1'+'0'*(manLen-len(manABits[2:])) + manABits[2:]
+expA = int('0b10000100',2) - pow(2,expLen-1)
+int(manABitsZExt,2)*pow(2,-len(manABitsZExt)+1)*pow(2,expA)
+#same for B
+manBBits = '0b1100010010111111'
+manBBitsZExt = '1'+'0'*(manLen-len(manBBits[2:])) + manBBits[2:]
+expB = int('0b1111110',2) - pow(2,expLen-1)
+int(manBBitsZExt,2)*pow(2,-len(manBBitsZExt)+1)*pow(2,expB)
+#assert that the mantissas, as ints, multiply correctly
+manC = int(manABitsZExt,2)*int(manBBitsZExt,2)
+print(manC)
+#assert that the 
