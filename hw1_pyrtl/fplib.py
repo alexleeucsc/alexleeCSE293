@@ -47,6 +47,11 @@ def logicFloat_to_float(logicFloat, expLen, manLen):
     #[1][.][00010101...1], where mantBits = '00010101...1' and is always mantBits long
 
 def float_to_Logicfloat(floatIn, expLen, manLen):
+    if floatIn<0:
+        floatIn = floatIn * -1
+        signBit = '1'
+    else:
+        signBit = '0'
     whole,frac = int(floatIn), floatIn - int(floatIn)
     mantWhole,mantFrac = bin(whole)[2:] if whole>0 else '', ''
     #exp = pow(2,expLen-1) #BUG 052023 - exp should start at bias!
@@ -77,7 +82,7 @@ def float_to_Logicfloat(floatIn, expLen, manLen):
     # mantCorrected = (mantWhole+mantFrac)[firstOneBit:]
     # exp = exp - firstOneBit + 1
     #return ['1' if floatIn<0 else '0', zeroExtendLeft(bin(exp)[2:], expLen), zeroExtendRight((mantWhole+mantFrac)[1:], manLen)]
-    return ['1' if floatIn<0 else '0', zeroExtendLeft(bin(exp)[2:], expLen), zeroExtendRight((mantConcat)[1:], manLen)]
+    return [signBit, zeroExtendLeft(bin(exp)[2:], expLen), zeroExtendRight((mantConcat)[1:], manLen)]
 
 # lf = float_to_Logicfloat(0.3842704582756764, 8, 64)
 # logicFloat_to_float(float_to_Logicfloat(0.3842704582756764, 8, 64), 8, 64)

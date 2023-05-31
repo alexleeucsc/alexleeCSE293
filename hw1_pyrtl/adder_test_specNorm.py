@@ -2,6 +2,8 @@ from pyrtl import *
 from fplib import *
 from math import pow
 import random
+from providedLib import prioritized_mux
+
 pyrtl.reset_working_block()
 
 #params
@@ -52,6 +54,9 @@ manCExt = pyrtl.WireVector(manLen+3, 'manCExt')
 manCFixExt = pyrtl.WireVector(manLen+2, 'manCFixExt')
 #intermediate exp wires
 expCMid = pyrtl.WireVector(expLen, 'expCMid')
+#first1tree wires
+fisrtOneIdxManC = pyrtl.WireVector(256, 'fisrtOneIdx')
+fisrtOneIdxManCSHAM = pyrtl.WireVector(256, 'fisrtOneIdxManCSHAM')
 
 #debug wires
 manCExtDebug = pyrtl.WireVector(manLen+2, 'manCExtDebug')
@@ -124,9 +129,16 @@ with pyrtl.conditional_assignment:
         manC |= manCFixExt[1:manLen+1] #TEST: 053023 - does this auto-cuttoff from MSB?
         expC |= expCMid+1
     with manCFixExt[-1] == pyrtl.Const("1'b0"):
-        #manC |= manCFixExt[:manLen]
-        manC |= manCFixExt[:manLen]
-        expC |= expCMid
+        #if there is no mantissa overflow, we have to regularize the mantissa
+        # manC |= manCFixExt[:manLen]
+        # expC |= expCMid
+        ## inputArr = Input(manLen, 'inputArr') manC is the input array
+        vals = [Const(i) for i in range(manLen+2)]
+        fisrtOneIdxManC |= prioritized_mux(manCFixExt, vals)
+        fisrtOneIdxManCSHAM |= manLen-fisrtOneIdxManC-1
+        expC |= expCMid - (manLen-fisrtOneIdxManC)
+        manC |= pyrtl.shift_left_logical(manCFixExt, manLen-fisrtOneIdxManC)
+
 #4 return fixed signals only:
 valid_c <<= pyrtl.Const("1'b1")
 ready_ab <<= pyrtl.Const("1'b1")
@@ -155,9 +167,9 @@ sim = pyrtl.Simulation(tracer=sim_trace, register_value_map={   #digitMask: int(
 for cycle in range(1):
     rand_flt_a = random.uniform(0.001,pow(2,5))
     rand_flt_b = random.uniform(0.001,pow(2,5))
-    rand_flt_a = -27
-    rand_flt_b = -5
-    rand_flt_a = -19
+    rand_flt_a = 27
+    rand_flt_b = 5
+    rand_flt_a = 19
     rand_flt_b = 22
     # rand_flt_a = 1.5649761142946192
     # rand_flt_b = 12.109807025821015
@@ -202,7 +214,9 @@ for cycle in range(1):
     print("\tvalu of 'manBitsAFixSign' was: " + str(bin(sim.inspect(manBitsAFixSign))))
     print("\tvalu of 'manBitsBFixSign' was: " + str(bin(sim.inspect(manBitsBFixSign))))
     print("\tvalu of 'shiftRightAmount' was: " + str(bin(sim.inspect(shiftRightAmount))))
-    
+    print("-----TMP VALUES-----")
+    print("\tvalu of 'fisrtOneIdxManC' was: " + str(bin(sim.inspect(fisrtOneIdxManC)))) 
+    print("\tvalu of 'fisrtOneIdxManCSHAM' was: " + str(bin(sim.inspect(fisrtOneIdxManCSHAM))))
 
     print("\traw flaot C out: float_C_val_int", bin(float_C_val_int))
     pyOut = rand_flt_a + rand_flt_b
