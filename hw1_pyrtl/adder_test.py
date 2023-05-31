@@ -1,4 +1,4 @@
-import pyrtl
+from pyrtl import *
 from fplib import *
 from math import pow
 import random
@@ -32,51 +32,106 @@ manA = pyrtl.WireVector(manLen, 'manA')
 signB = pyrtl.WireVector(1, 'signB')
 expB = pyrtl.WireVector(expLen, 'expB')
 manB = pyrtl.WireVector(manLen, 'manB')
-#debugWires
-manCLongWire = pyrtl.WireVector(2+manLen*2, 'manCLongWire')
-manCLongWireCut = pyrtl.WireVector(1+manLen, 'manCLongWireCut')
-expCDebug = pyrtl.WireVector(expLen+1, 'expCDebug')
-manCLongDeciderDebug = pyrtl.WireVector(1, 'manCLongDeciderDebug')
+signC = pyrtl.WireVector(1, 'signC')
+expC = pyrtl.WireVector(expLen, 'expC')
+manC = pyrtl.WireVector(manLen, 'manCFinal')
 
-def multiplyLogicFloat(float_A, float_B, float_C,
-                        signA, expA, manA,
-                        signB, expB, manB,
-                        ready_ab, valid_ab, ready_c, valid_c,
-                        manCLongWire, expCDebug, manCLongDeciderDebug, manCLongWireCut):
-    signA <<= float_A[0]
-    expA <<= float_A[1:expLen+1]
-    manA <<= float_A[expLen+1:]
-    signB <<= float_B[0]
-    expB <<= float_B[1:expLen+1]
-    manB <<= float_B[expLen+1:]
-    with pyrtl.conditional_assignment:
-        print("binary string:",str(expLen)+"'b1"+('0'*(expLen-1)))
-        expC = expA+expB-pyrtl.Const(str(expLen)+"'b1"+('0'*(expLen-1)))
-        expCDebug <<= expC
-        #multiply manC, shift right until first bit is a 1
-        manCLong = pyrtl.concat(pyrtl.Const("1'b1"), manA) * pyrtl.concat(pyrtl.Const("1'b1"), manB)
-        print("@@@@@",len(manCLong),"@@@@@")
-        manCLongWireCut <<= pyrtl.concat(pyrtl.Const("1'b1"), manA) * pyrtl.concat(pyrtl.Const("1'b1"), manB)
-        manCLongWire <<= manCLong[len(manCLong)-manLen-2:-2]
-        manCLongDeciderDebug <<= manCLong[-1]
-        with manCLong[-1] == pyrtl.Const("1'b1"):
-            #BUG 052923 - manCLong bit index wrong, should be -1
-            #BUG 052923 - the -1 and -2 were mixed
-            #BUG 052923 - add one to exp when first bit is a 1 and you are cutting off less
-            float_C |= pyrtl.concat_list([manCLong[len(manCLong)-manLen-1:-1], (expA+expB-pyrtl.Const(str(expLen)+"'b1"+('0'*(expLen-1))))+1, pyrtl.Const("1'b0")])
-        with manCLong[-1] == pyrtl.Const("1'b0"):
-            float_C |= pyrtl.concat_list([manCLong[len(manCLong)-manLen-2:-2], (expA+expB-pyrtl.Const(str(expLen)+"'b1"+('0'*(expLen-1)))), pyrtl.Const("1'b0")])
-            #float_C |= pyrtl.concat_list([manCLong[1:1+expLen], (expA+expB-pyrtl.Const(str(expLen)+"'b1"+('0'*(expLen-1))))[expLen], signA^signB])
-    valid_c <<= pyrtl.Const("1'b1")
-    ready_ab <<= pyrtl.Const("1'b1")
-    # valid_c_reg <<= pyrtl.Const("1'b1")
-    # mult_state <<= pyrtl.Const("1'b1")
+#Wires
+#manBitsShiftFix = pyrtl.WireVector(manLen+1, 'manBitsShiftFix')
+manBitsAFix = pyrtl.WireVector(manLen+1, 'manBitsAFix')
+manBitsBFix = pyrtl.WireVector(manLen+1, 'manBitsBFix')
+shiftRightAmount = pyrtl.WireVector(expLen+1, 'shiftRightAmount')
+manBitsAFixSign = pyrtl.WireVector(manLen+1, 'manBitsAFixSign')
+manBitsBFixSign = pyrtl.WireVector(manLen+1, 'manBitsBFixSign')
+manCExt = pyrtl.WireVector(manLen+2, 'manCExt')
+#intermediate exp wires
+expCMid = pyrtl.WireVector(expLen, 'expCMid')
 
-multiplyLogicFloat(float_A, float_B, float_C,
-                    signA, expA, manA,
-                    signB, expB, manB,
-                    ready_ab, valid_ab, ready_c, valid_c,
-                    manCLongWire, expCDebug,manCLongDeciderDebug, manCLongWireCut)
+#debug wires
+manCExtDebug = pyrtl.WireVector(manLen+1, 'manCExtDebug')
+manCFixExtDebug = pyrtl.WireVector(manLen+1, 'manCFixExtDebug')
+abCompareDebug = pyrtl.WireVector(1, 'abCompareDebug')
+
+# def addLogicFloat(float_A, float_B, float_C,
+#                         signA, expA, manA,
+#                         signB, expB, manB,
+#                         signC, expC, manC,
+#                         ready_ab, valid_ab, ready_c, valid_c,
+#                         manBitsShiftFix,
+#                         manCExtDebug,manCFixExtDebug):
+signA <<= float_A[0]
+expA <<= float_A[1:expLen+1]
+manA <<= float_A[expLen+1:]
+signB <<= float_B[0]
+expB <<= float_B[1:expLen+1]
+manB <<= float_B[expLen+1:]
+with pyrtl.conditional_assignment:
+    #1: compare exp, keep bigger exp, then shiftright the mantissa of the smaller one
+    abCompareDebug <<= (expA > expB)
+    with (expA >= expB):
+        expCMid |= expA
+        shiftRightAmount |= expA + ~expB + 1 - pyrtl.Const(str(expLen+1)+"'b1"+("0"*(expLen)))
+        #manBitsBAppend1 = pyrtl.concat(manB, pyrtl.Const("1'b1"))
+        # manBitsBFix = pyrtl.shift_right_logical(pyrtl.concat(manB, pyrtl.Const("1'b1")), shiftRightAmount) #should be same bit width as manLen+1
+        # manBitsShiftFix |= manBitsBFix
+        manBitsBFix |= pyrtl.shift_right_logical(pyrtl.concat(pyrtl.Const("1'b1"), manB), shiftRightAmount)
+        manBitsAFix |= pyrtl.concat(pyrtl.Const("1'b1"), manA)
+    with (expA < expB):
+        expCMid |= expB
+        shiftRightAmount |= expB + ~expA + 1 - pyrtl.Const(str(expLen+1)+"'b1"+("0"*(expLen)))
+        #manBitsAAppend1 = pyrtl.concat(manA, pyrtl.Const("1'b1"))
+        # manBitsAFix = pyrtl.shift_right_logical(pyrtl.concat(manA, pyrtl.Const("1'b1")), shiftRightAmount) #should be same bit width as manLen+1
+        # manBitsShiftFix |= manBitsAFix
+        manBitsAFix |= pyrtl.shift_right_logical(pyrtl.concat(pyrtl.Const("1'b1"), manA), shiftRightAmount)
+        manBitsBFix |= pyrtl.concat(pyrtl.Const("1'b1"), manB)
+    #2: add shifted mantissas. Consider sign bits
+with pyrtl.conditional_assignment:
+    with signA==pyrtl.Const("1'b1"):
+        manBitsAFixSign |= manBitsAFix * pyrtl.Const(-1,signed=True)
+    with signA==pyrtl.Const("1'b0"):
+        manBitsAFixSign |= manBitsAFix
+    # with pyrtl.otherwise:
+    #     manBitsAFixSign |= pyrtl.Const("5'b11111")
+with pyrtl.conditional_assignment:
+    with signB==pyrtl.Const("1'b1"):
+        manBitsBFixSign |= manBitsBFix * pyrtl.Const(-1,signed=True)
+    with signB==pyrtl.Const("1'b0"):
+        manBitsBFixSign |= manBitsBFix
+manCExt <<= manBitsAFixSign + manBitsBFixSign
+manCExtDebug <<= manCExt
+    #2b: if mantissa neg, turn pos and set sign bit
+with pyrtl.conditional_assignment:
+    with manCExt<0:
+        signC |= pyrtl.Const("1'b1")
+        manCFixExt = manCExt * pyrtl.Const(-1,signed=True)
+    with manCExt>=0:
+        signC |= pyrtl.Const("1'b0")
+        manCFixExt = manCExt
+    manCFixExtDebug <<= manCFixExt
+    #3 correct mantissa len: first bit of mant is either 1 or 0:
+    #if first bit is 1, mant overflow: fit starting from 1 into manC
+    #to take care of overflow, add one to exp
+with pyrtl.conditional_assignment:    
+    with manCFixExt[-1] == pyrtl.Const("1'b1"):
+        manC |= manCFixExt[1:manLen+1] #TEST: 053023 - does this auto-cuttoff from MSB?
+        expC |= expCMid+1
+    with manCFixExt[-1] == pyrtl.Const("1'b0"):
+        manC |= manCFixExt[:manLen]
+        expC |= expCMid
+#4 return fixed signals only:
+valid_c <<= pyrtl.Const("1'b1")
+ready_ab <<= pyrtl.Const("1'b1")
+float_C <<= pyrtl.concat_list([manC, expC, signC])
+
+
+
+# addLogicFloat(float_A, float_B, float_C,
+#                     signA, expA, manA,
+#                     signB, expB, manB,
+#                     signC, expC, manC,
+#                     ready_ab, valid_ab, ready_c, valid_c,
+#                     manBitsShiftFix,
+#                     manCExtDebug,manCFixExtDebug)
 
 #sim_trace = pyrtl.SimulationTrace(register_value_map={digitMask: "6'b111111"})
 sim_trace = pyrtl.SimulationTrace()
@@ -88,7 +143,7 @@ sim = pyrtl.Simulation(tracer=sim_trace, register_value_map={   #digitMask: int(
                                                             })
 
 
-for cycle in range(10000):
+for cycle in range(1):
     rand_flt_a = random.uniform(0.001,pow(2,5))
     rand_flt_b = random.uniform(0.001,pow(2,5))
     # rand_flt_a = 27.975501666579657
@@ -97,8 +152,8 @@ for cycle in range(10000):
     # rand_flt_b = 22.768816354253484
     # rand_flt_a = 1.5649761142946192
     # rand_flt_b = 12.109807025821015
-    # rand_flt_a = 20.46377914798672
-    # rand_flt_b = 0.3842704582756764
+    rand_flt_a = 20.46377914798672
+    rand_flt_b = 0.3842704582756764
     print("rand_flt_a",rand_flt_a)
     print("rand_flt_b",rand_flt_b)
     logicValA = float_to_Logicfloat(rand_flt_a,expLen,manLen)
@@ -125,16 +180,21 @@ for cycle in range(10000):
     print("\tvalu of 'expB' was: " + str(bin(sim.inspect(expB))))
     print("\tvalu of 'manB' was: " + str(bin(sim.inspect(manB))))
     
-    #print("\tvalue of 'signC' was: " + str(sim.inspect(signC)))
-    #print("\tvalu of 'expC' was: " + str(bin(sim.inspect(expC))))
-    #print("\tvalu of 'manC' was: " + str(bin(sim.inspect(manC))))
-    print("\tvalu of 'manCLongWire' was: " + str(bin(sim.inspect(manCLongWire))))
-    print("\tvalu of 'expCDebug' was: " + str(bin(sim.inspect(expCDebug))))
-    print("\tvalu of 'manCLongDeciderDebug' was: " + str(bin(sim.inspect(manCLongDeciderDebug))))
-    print("\tvalu of 'manCLongWireCut' was: " + str(bin(sim.inspect(manCLongWireCut))))
+    print("\tvalue of 'signC' was: " + str(sim.inspect(signC)))
+    print("\tvalu of 'expC' was: " + str(bin(sim.inspect(expC))))
+    print("\tvalu of 'manC' was: " + str(bin(sim.inspect(manC))))
+    print("-----DEBUG VALUES-----")
+    print("\tvalu of 'manCExtDebug' was: " + str(bin(sim.inspect(manCExtDebug))))
+    print("\tvalu of 'manCFixExtDebug' was: " + str(bin(sim.inspect(manCFixExtDebug))))
+    print("\tvalu of 'manBitsAFix' was: " + str(bin(sim.inspect(manBitsAFix))))
+    print("\tvalu of 'manBitsBFix' was: " + str(bin(sim.inspect(manBitsBFix))))
+    print("\tvalu of 'manBitsAFixSign' was: " + str(bin(sim.inspect(manBitsAFixSign))))
+    print("\tvalu of 'manBitsBFixSign' was: " + str(bin(sim.inspect(manBitsBFixSign))))
+    print("\tvalu of 'shiftRightAmount' was: " + str(bin(sim.inspect(shiftRightAmount))))
+    
 
     print("\traw flaot C out: float_C_val_int", bin(float_C_val_int))
-    pyOut = rand_flt_a * rand_flt_b
+    pyOut = rand_flt_a + rand_flt_b
     print("logfloat rep C:",[float_C_val_str[0], float_C_val_str[1:expLen+1], float_C_val_str[expLen+1:]])
     assert(abs(float_C_val-pyOut)<1)
 
