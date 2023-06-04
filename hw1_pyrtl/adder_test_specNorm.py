@@ -164,16 +164,20 @@ sim = pyrtl.Simulation(tracer=sim_trace, register_value_map={   #digitMask: int(
                                                             })
 
 
-for cycle in range(1):
+for cycle in range(100):
     rand_flt_a = random.uniform(0.001,pow(2,5))
     rand_flt_b = random.uniform(0.001,pow(2,5))
-    rand_flt_a = 27
-    rand_flt_b = 5
-    rand_flt_a = 19
-    rand_flt_b = 22
-    # rand_flt_a = 1.5649761142946192
-    # rand_flt_b = 12.109807025821015
-    # rand_flt_a = 20.46377914798672
+    a_sign = random.choice([1,-1])
+    b_sign = random.choice([1,-1])
+    rand_flt_a = rand_flt_a * a_sign
+    rand_flt_b = rand_flt_b * b_sign
+    # rand_flt_a = 27
+    # rand_flt_b = 5
+    # rand_flt_a = 19
+    # rand_flt_b = 22
+    # rand_flt_a = -1.5649761142946192
+    # rand_flt_b = -12.109807025821015
+    # rand_flt_a = -20.46377914798672
     # rand_flt_b = -0.3842704582756764
     print("rand_flt_a",rand_flt_a)
     print("rand_flt_b",rand_flt_b)

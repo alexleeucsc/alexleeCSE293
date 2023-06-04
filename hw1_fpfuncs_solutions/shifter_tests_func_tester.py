@@ -1,4 +1,6 @@
 import pyrtl
+import random
+import math
 from fplib import *
 from math import pow
 pyrtl.reset_working_block()
@@ -21,16 +23,14 @@ ready_c = pyrtl.Input(1, 'ready_c')
 float_C = pyrtl.Output(expLen+manLen+1, 'float_C')
 valid_c = pyrtl.Output(1, 'valid_c')
 ready_ab = pyrtl.Output(1, 'ready_ab')
-#wires
-signA = pyrtl.WireVector(1, 'signA')
-expA = pyrtl.WireVector(expLen, 'expA')
-manA = pyrtl.WireVector(manLen, 'manA')
-manAFixWire = pyrtl.WireVector(manLen+1, 'manAFixWire')
 
-def shiftRightLogicFloat(float_A, float_C,
-                        signA, expA, manA,
-                        ready_ab, valid_ab, ready_c, valid_c,
-                        manAFixWire):
+def shiftRightLogicFloat(float_A, float_C, shiftLeftAmount,
+                        ready_ab, valid_ab, ready_c, valid_c):
+    #wires
+    signA = pyrtl.WireVector(1, 'signA')
+    expA = pyrtl.WireVector(expLen, 'expA')
+    manA = pyrtl.WireVector(manLen, 'manA')
+    manAFixWire = pyrtl.WireVector(manLen+1, 'manAFixWire')
     signA <<= float_A[0]
     expA <<= float_A[1:expLen+1]
     manA <<= float_A[expLen+1:]
@@ -47,10 +47,8 @@ def shiftRightLogicFloat(float_A, float_C,
             float_C |= pyrtl.concat_list([pyrtl.Const("1'b1"), pyrtl.Const("8'b11111111"), pyrtl.Const("32'b"+('1'*32))])
 
 
-shiftRightLogicFloat(float_A, float_C,
-                    signA, expA, manA,
-                    ready_ab, valid_ab, ready_c, valid_c,
-                    manAFixWire)
+shiftRightLogicFloat(float_A, float_C, shiftLeftAmount,
+                        ready_ab, valid_ab, ready_c, valid_c)
 
 #debug: plug in outputs for now...
 ready_ab <<= 1
@@ -65,9 +63,9 @@ sim = pyrtl.Simulation(tracer=sim_trace, register_value_map={   })
 #debugging specific functions
 
 
-for cycle in range(2):
-    rand_flt_a = random.uniform(0.001,pow(2,5))
-    shiftLeftAmount = random.randint(math.log2(rand_flt_a))
+for cycle in range(1000):
+    rand_flt_a = random.uniform(1,pow(2,5))
+    shiftLeftAmount = random.randint(0,int(math.log2(rand_flt_a)))
     logicVal1 = float_to_Logicfloat(rand_flt_a,expLen,manLen)
     strVal1 = ''.join(reversed(logicVal1))
     sim.step({
@@ -82,9 +80,9 @@ for cycle in range(2):
     float_C_val_str = zeroExtendLeft(bin(float_C_val_int)[2:], expLen+manLen+1)
     float_C_val = logicFloat_to_float([float_C_val_str[0], float_C_val_str[1:expLen+1], float_C_val_str[expLen+1:]], expLen, manLen)
     print("The latest value of 'float_C_val' was: " + str(float_C_val))
-    print("\tvalue of 'signA' was: " + str(sim.inspect(signA)))
-    print("\tvalu of 'expA' was: " + str(bin(sim.inspect(expA))))
-    print("\tvalu of 'manA' was: " + str(bin(sim.inspect(manA))))
+    # print("\tvalue of 'signA' was: " + str(sim.inspect(signA)))
+    # print("\tvalu of 'expA' was: " + str(bin(sim.inspect(expA))))
+    # print("\tvalu of 'manA' was: " + str(bin(sim.inspect(manA))))
     print("logfloat rep C:",[float_C_val_str[0], float_C_val_str[1:expLen+1], float_C_val_str[expLen+1:]])
     print("logfloat rep input:",logicVal1)
     pyOut = rand_flt_a / pow(2,shiftLeftAmount)

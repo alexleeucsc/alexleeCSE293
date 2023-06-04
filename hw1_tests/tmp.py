@@ -63,3 +63,5 @@ int(manBBitsZExt,2)*pow(2,-len(manBBitsZExt)+1)*pow(2,expB)
 manC = int(manABitsZExt,2)*int(manBBitsZExt,2)
 print(manC)
 #assert that the 
+
+#052023

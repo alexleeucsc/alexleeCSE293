@@ -186,5 +186,5 @@ def nr_logical(num,div,rep=10):
         print("new guess for reciprocol:",rec_guess)
         rec_guess = rec_guess + rec_guess*(1-(div*rec_guess))
     return num*rec_guess
-#print(nr_logical(121,11))
+print(nr_logical(121,11))
 
