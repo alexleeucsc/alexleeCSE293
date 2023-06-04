@@ -33,18 +33,19 @@ class multTestClass:
         self.signB = pyrtl.WireVector(1, 'signB'+nameTag)
         self.expB = pyrtl.WireVector(self.expLen, 'expB'+nameTag)
         self.manB = pyrtl.WireVector(self.manLen, 'manB'+nameTag)
+        self.signC = pyrtl.WireVector(1, 'signC'+nameTag)
         #debugWires
         self.manCLongWire = pyrtl.WireVector(2+self.manLen*2, 'manCLongWire'+nameTag)
         self.manCLongWireCut = pyrtl.WireVector(1+self.manLen, 'manCLongWireCut'+nameTag)
         self.expCDebug = pyrtl.WireVector(self.expLen+1, 'expCDebug'+nameTag)
         self.manCLongDeciderDebug = pyrtl.WireVector(1, 'manCLongDeciderDebug'+nameTag)
     def multiplyLogicFloat(self,float_A, float_B, float_C):
-        self.signA <<= float_A[0]
-        self.expA <<= float_A[1:self.expLen+1]
-        self.manA <<= float_A[self.expLen+1:]
-        self.signB <<= float_B[0]
-        self.expB <<= float_B[1:self.expLen+1]
-        self.manB <<= float_B[self.expLen+1:]
+        self.signA <<= float_A[self.expLen+self.manLen]
+        self.expA <<= float_A[self.manLen:self.expLen+self.manLen]
+        self.manA <<= float_A[:self.manLen]
+        self.signB <<= float_B[self.expLen+self.manLen]
+        self.expB <<= float_B[self.manLen:self.expLen+self.manLen]
+        self.manB <<= float_B[:self.manLen]
         #with pyrtl.conditional_assignment:
         print("binary string:",str(self.expLen)+"'b1"+('0'*(self.expLen-1)))
         expC = self.expA+self.expB-pyrtl.Const(str(self.expLen)+"'b1"+('0'*(self.expLen-1)))
@@ -63,9 +64,22 @@ class multTestClass:
         # with manCLong[-1] == pyrtl.Const("1'b0"):
         #     float_C |= pyrtl.concat_list([manCLong[len(manCLong)-self.manLen-2:-2], (self.expA+self.expB-pyrtl.Const(str(self.expLen)+"'b1"+('0'*(self.expLen-1)))), pyrtl.Const("1'b0")])
             #float_C |= pyrtl.concat_list([manCLong[1:1+self.expLen], (expA+expB-pyrtl.Const(str(self.expLen)+"'b1"+('0'*(self.expLen-1))))[self.expLen], signA^signB])
+        self.signC <<= self.signA ^ self.signB
         float_C <<= pyrtl.select(manCLong[-1] == pyrtl.Const("1'b1"),
-        pyrtl.concat_list([manCLong[len(manCLong)-self.manLen-1:-1], (self.expA+self.expB-pyrtl.Const(str(self.expLen)+"'b1"+('0'*(self.expLen-1))))+1, pyrtl.Const("1'b0")]),
-        pyrtl.concat_list([manCLong[len(manCLong)-self.manLen-2:-2], (self.expA+self.expB-pyrtl.Const(str(self.expLen)+"'b1"+('0'*(self.expLen-1)))), pyrtl.Const("1'b0")]))
+        pyrtl.concat_list(  [
+                            manCLong[len(manCLong)-self.manLen-1:-1],
+                            ( (self.expA+self.expB-pyrtl.Const(str(self.expLen)+"'b1"+('0'*(self.expLen-1))))+1 )[:-3],
+                            #pyrtl.Const("1'b0")
+                            #self.signA ^ self.signB
+                            self.signC
+                            ]),
+        pyrtl.concat_list(  [
+                            manCLong[len(manCLong)-self.manLen-2:-2],
+                            (self.expA+self.expB-pyrtl.Const(str(self.expLen)+"'b1"+('0'*(self.expLen-1))))[:-2],
+                            #pyrtl.Const("1'b0")
+                            #self.signA ^ self.signB
+                            self.signC
+                            ]))
         # valid_c_reg <<= pyrtl.Const("1'b1")
         # mult_state <<= pyrtl.Const("1'b1")
 
@@ -85,6 +99,10 @@ if __name__ == "__main__":
     for cycle in range(10000):
         rand_flt_a = random.uniform(0.001,pow(2,5))
         rand_flt_b = random.uniform(0.001,pow(2,5))
+        a_sign = random.choice([1,-1])
+        b_sign = random.choice([1,-1])
+        rand_flt_a = rand_flt_a * a_sign
+        rand_flt_b = rand_flt_b * b_sign
         # rand_flt_a = 27.975501666579657
         # rand_flt_b = 5.791934863334932
         # rand_flt_a = 19.31798612365359
@@ -97,8 +115,8 @@ if __name__ == "__main__":
         print("rand_flt_b",rand_flt_b)
         logicValA = float_to_Logicfloat(rand_flt_a,expLen,manLen)
         logicValB = float_to_Logicfloat(rand_flt_b,expLen,manLen)
-        strValA = ''.join(reversed(logicValA))
-        strValB = ''.join(reversed(logicValB))
+        strValA = ''.join(logicValA)
+        strValB = ''.join(logicValB)
         sim.step({
             'float_A': int(strValA, 2),
             'float_B': int(strValB, 2),
@@ -126,6 +144,7 @@ if __name__ == "__main__":
         # print("\tvalu of 'manCLongWireCut' was: " + str(bin(sim.inspect(manCLongWireCut))))
 
         print("\traw flaot C out: float_C_val_int", bin(float_C_val_int))
+        print("\traw flaot C out: float_C_val", float_C_val)
         pyOut = rand_flt_a * rand_flt_b
         print("logfloat rep C:",[float_C_val_str[0], float_C_val_str[1:expLen+1], float_C_val_str[expLen+1:]])
         assert(abs(float_C_val-pyOut)<1)

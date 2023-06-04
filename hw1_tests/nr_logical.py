@@ -183,8 +183,11 @@ def nr_logical(num,div,rep=10):
     print(div)
     rec_guess = (48/17)-(32/17)*div
     for _ in range(rep):
-        print("new guess for reciprocol:",rec_guess)
+        print("\tnew guess for reciprocol:",rec_guess)
+        print("\tdiv*rec_guess",div*rec_guess)
+        print("\t(1-(div*rec_guess))",(1-(div*rec_guess)))
+        print("\trec_guess*(1-(div*rec_guess))",rec_guess*(1-(div*rec_guess)))
         rec_guess = rec_guess + rec_guess*(1-(div*rec_guess))
     return num*rec_guess
-print(nr_logical(121,11))
+print(nr_logical(43,7))
 

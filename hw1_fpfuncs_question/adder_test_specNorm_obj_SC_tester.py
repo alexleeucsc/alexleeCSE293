@@ -64,12 +64,12 @@ class addTestClass:
         self.manCFixExtDebug = pyrtl.WireVector(self.manLen+1, 'manCFixExtDebug'+nameTag)
         #abCompareDebug = pyrtl.WireVector(1, 'abCompareDebug')
     def addLogicFloat(self,float_A, float_B, float_C):
-        self.signA <<= float_A[0]
-        self.expA <<= float_A[1:self.expLen+1]
-        self.manA <<= float_A[self.expLen+1:]
-        self.signB <<= float_B[0]
-        self.expB <<= float_B[1:self.expLen+1]
-        self.manB <<= float_B[self.expLen+1:]
+        self.signA <<= float_A[self.expLen+self.manLen]
+        self.expA <<= float_A[self.manLen:self.expLen+self.manLen]
+        self.manA <<= float_A[:self.manLen]
+        self.signB <<= float_B[self.expLen+self.manLen]
+        self.expB <<= float_B[self.manLen:self.expLen+self.manLen]
+        self.manB <<= float_B[:self.manLen]
 
         self.expCMid <<= select((self.expA >= self.expB), self.expA, self.expB)
         self.shiftRightAmount <<= select((self.expA >= self.expB), self.expA + ~self.expB + 1 - pyrtl.Const(str(self.expLen+1)+"'b1"+("0"*(self.expLen))), self.expB + ~self.expA + 1 - pyrtl.Const(str(self.expLen+1)+"'b1"+("0"*(self.expLen))))
@@ -129,8 +129,8 @@ if __name__ == "__main__":
         logicValB = float_to_Logicfloat(rand_flt_b,expLen,manLen)
         print("logicValA",logicValA)
         print("logicValB",logicValB)
-        strValA = ''.join(reversed(logicValA))
-        strValB = ''.join(reversed(logicValB))
+        strValA = ''.join(logicValA)
+        strValB = ''.join(logicValB)
         sim.step({
             'float_A': int(strValA, 2),
             'float_B': int(strValB, 2),

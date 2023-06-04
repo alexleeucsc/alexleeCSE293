@@ -29,13 +29,13 @@ class shiftTestClass:
         self.expA = pyrtl.WireVector(self.expLen, 'expA'+nameTag)
         self.manA = pyrtl.WireVector(self.manLen, 'manA'+nameTag)
         self.manAFixWire = pyrtl.WireVector(self.manLen+1, 'manAFixWire'+nameTag)
-        self.signA <<= float_A[0]
-        self.expA <<= float_A[1:self.expLen+1]
-        self.manA <<= float_A[self.expLen+1:]
+    def shiftRightLogicFloat(self, float_A, float_C, shiftLeftAmount):
+        self.signA <<= float_A[self.expLen+self.manLen]
+        self.expA <<= float_A[self.manLen:self.expLen+self.manLen]
+        self.manA <<= float_A[:self.manLen]
         #concat 1 on left (msb) of manA
         self.manAFixWire <<= pyrtl.concat(self.manA, pyrtl.Const("1'b1"))
-    def shiftRightLogicFloat(self, float_A, float_C, shiftLeftAmount):
-        float_C <<= pyrtl.select(self.expA>=shiftLeftAmount,
+        float_C <<= pyrtl.select(self.expA >=shiftLeftAmount,
         pyrtl.concat_list([self.manA, self.expA-shiftLeftAmount, self.signA]),
         pyrtl.concat_list([pyrtl.Const("1'b1"), pyrtl.Const("8'b11111111"), pyrtl.Const("32'b"+('1'*32))])
         )
