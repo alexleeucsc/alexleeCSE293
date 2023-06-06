@@ -180,7 +180,7 @@ def nr_logical(num,div,rep=10):
     print("pow of 2 normalizing factor:", e)
     num = num / e
     div = div / e
-    print(div)
+    print(num, div)
     rec_guess = (48/17)-(32/17)*div
     for _ in range(rep):
         print("\tnew guess for reciprocol:",rec_guess)
