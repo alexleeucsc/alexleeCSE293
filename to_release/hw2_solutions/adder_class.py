@@ -20,12 +20,12 @@ class addTestClass:
         self.expLen = 8
         self.manLen = 16
         #wires
-        self.signA = pyrtl.WireVector(1, 'signA'+nameTag)
-        self.expA = pyrtl.WireVector(self.expLen, 'expA'+nameTag)
-        self.manA = pyrtl.WireVector(self.manLen, 'manA'+nameTag)
-        self.signB = pyrtl.WireVector(1, 'signB'+nameTag)
-        self.expB = pyrtl.WireVector(self.expLen, 'expB'+nameTag)
-        self.manB = pyrtl.WireVector(self.manLen, 'manB'+nameTag)
+        # self.signA = pyrtl.WireVector(1, 'signA'+nameTag)
+        # self.expA = pyrtl.WireVector(self.expLen, 'expA'+nameTag)
+        # self.manA = pyrtl.WireVector(self.manLen, 'manA'+nameTag)
+        # self.signB = pyrtl.WireVector(1, 'signB'+nameTag)
+        #self.expB = pyrtl.WireVector(self.expLen, 'expB'+nameTag)
+        # self.manB = pyrtl.WireVector(self.manLen, 'manB'+nameTag)
         self.signC = pyrtl.WireVector(1, 'signC'+nameTag)
         self.expC = pyrtl.WireVector(self.expLen, 'expC'+nameTag)
         self.manC = pyrtl.WireVector(self.manLen, 'manCFinal'+nameTag)
@@ -44,12 +44,12 @@ class addTestClass:
         self.manCFixExtDebug = pyrtl.WireVector(self.manLen+1, 'manCFixExtDebug'+nameTag)
         #abCompareDebug = pyrtl.WireVector(1, 'abCompareDebug')
     def addLogicFloat(self,float_A, float_B, float_C):
-        self.signA <<= float_A[self.expLen+self.manLen]
-        self.expA <<= float_A[self.manLen:self.expLen+self.manLen]
-        self.manA <<= float_A[:self.manLen]
-        self.signB <<= float_B[self.expLen+self.manLen]
-        self.expB <<= float_B[self.manLen:self.expLen+self.manLen]
-        self.manB <<= float_B[:self.manLen]
+        self.signA = float_A[self.expLen+self.manLen]
+        self.expA = float_A[self.manLen:self.expLen+self.manLen]
+        self.manA = float_A[:self.manLen]
+        self.signB = float_B[self.expLen+self.manLen]
+        self.expB = float_B[self.manLen:self.expLen+self.manLen]
+        self.manB = float_B[:self.manLen]
 
         self.expCMid <<= select((self.expA >= self.expB), self.expA, self.expB)
         self.shiftRightAmount <<= select((self.expA >= self.expB), self.expA + ~self.expB + 1 - pyrtl.Const(str(self.expLen+1)+"'b1"+("0"*(self.expLen))), self.expB + ~self.expA + 1 - pyrtl.Const(str(self.expLen+1)+"'b1"+("0"*(self.expLen))))

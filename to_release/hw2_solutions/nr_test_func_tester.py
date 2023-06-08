@@ -154,14 +154,8 @@ with pyrtl.conditional_assignment as condAssignObj:
         with otherwise:
             state.next |= DONE
 
-#sim_trace = pyrtl.SimulationTrace(register_value_map={digitMask: "6'b111111"})
 sim_trace = pyrtl.SimulationTrace()
-#bug 051523: https://pyrtl.readthedocs.io/en/latest/simtest.html
-# register_value_map has format {reg:int}
-sim = pyrtl.Simulation(tracer=sim_trace, register_value_map={   #digitMask: int(pow(2,6))-1,
-                                                                #mult_state: 0,
-                                                                #ready_ab_reg: 1,
-                                                            })
+sim = pyrtl.Simulation(tracer=sim_trace, register_value_map={})
 
 def binWireToFloat(wireToInspect, wireWidth):
     wireToInspect_int = sim.inspect(wireToInspect)
